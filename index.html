@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クイズ＆ランキングアプリ</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #2ec4b6;
+            --bg-color: #f0f4f8;
+            --card-color: #ffffff;
+            --text-color: #333333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background: var(--card-color);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .screen { display: none; }
+        .active { display: block; }
+        h1 { font-size: 24px; margin-bottom: 20px; color: var(--primary-color); }
+        h2 { font-size: 20px; margin-bottom: 16px; }
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 12px;
+            transition: background 0.2s, transform 0.1s;
+            font-weight: bold;
+            box-sizing: border-box;
+        }
+        .btn:active { transform: scale(0.98); background-color: #357abd; }
+        .choice-btn {
+            background-color: #f8f9fa;
+            color: var(--text-color);
+            border: 2px solid #e9ecef;
+            text-align: left;
+        }
+        .choice-btn:active { background-color: #e9ecef; }
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+        .ranking-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: #f8f9fa;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .ranking-item:nth-child(1) { background: #fff3cd; color: #856404; }
+        .ranking-item:nth-child(2) { background: #e2e3e5; color: #383d41; }
+        .ranking-item:nth-child(3) { background: #f8d7da; color: #721c24; }
+        .progress { font-size: 14px; color: #666; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- スタート画面 -->
+    <div id="start-screen" class="screen active">
+        <h1>クイズに挑戦！</h1>
+        <p>全3問のクイズです。ハイスコアを目指そう！</p>
+        <button class="btn" onclick="startQuiz()">スタート</button>
+        <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">ランキングを見る</button>
+    </div>
+
+    <!-- クイズ画面 -->
+    <div id="quiz-screen" class="screen">
+        <div class="progress" id="progress">第 1 問 / 3</div>
+        <h2 id="question">問題文がここに入ります</h2>
+        <div id="choices">
+            <!-- 選択肢ボタンが自動生成されます -->
+        </div>
+    </div>
+
+    <!-- 結果・名前入力画面 -->
+    <div id="result-screen" class="screen">
+        <h1>結果発表</h1>
+        <h2>あなたのスコア: <span id="score" style="color:var(--success-color);">0</span> 点</h2>
+        <p>ランキングに名前を登録しよう！</p>
+        <input type="text" id="username" class="input-field" placeholder="名前を入力（最大8文字）" maxlength="8">
+        <button class="btn" onclick="saveScore()">スコアを保存</button>
+    </div>
+
+    <!-- ランキング画面 -->
+    <div id="ranking-screen" class="screen">
+        <h1>🏆 トップ5 ランキング</h1>
+        <div id="ranking-board">
+            <!-- ランキングがここに入ります -->
+        </div>
+        <button class="btn" onclick="goHome()">トップに戻る</button>
+    </div>
+</div>
+
+<script>
+    // クイズのデータ（ここを書き換えるだけで問題を変更できます）
+    const quizData = [
+        {
+            question: "日本の現在の首都はどこ？",
+            choices: ["京都", "東京", "大阪", "名古屋"],
+            answer: 1 // 0から数えて1番目（東京）が正解
+        },
+        {
+            question: "世界で一番高い山は？",
+            choices: ["富士山", "キリマンジャロ", "エベレスト", "モンブラン"],
+            answer: 2 // エベレスト
+        },
+        {
+            question: "水（H2O）を構成する元素は水素と何？",
+            choices: ["炭素", "窒素", "酸素", "塩素"],
+            answer: 2 // 酸素
+        }
+    ];
+
+    let currentQuestionIndex = 0;
+    let currentScore = 0;
+
+    // 画面切り替え関数
+    function changeScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    // クイズ開始
+    function startQuiz() {
+        currentQuestionIndex = 0;
+        currentScore = 0;
+        changeScreen('quiz-screen');
+        showQuestion();
+    }
+
+    // 問題表示
+    function showQuestion() {
+        const data = quizData[currentQuestionIndex];
+        document.getElementById('progress').innerText = `第 ${currentQuestionIndex + 1} 問 / ${quizData.length}`;
+        document.getElementById('question').innerText = data.question;
+        
+        const choicesContainer = document.getElementById('choices');
+        choicesContainer.innerHTML = '';
+        
+        data.choices.forEach((choice, index) => {
+            const button = document.createElement('button');
+            button.innerText = choice;
+            button.className = 'btn choice-btn';
+            button.onclick = () => checkAnswer(index);
+            choicesContainer.appendChild(button);
+        });
+    }
+
+    // 回答チェック
+    function checkAnswer(selectedIndex) {
+        if (selectedIndex === quizData[currentQuestionIndex].answer) {
+            currentScore += 10; // 1問正解で10点
+        }
+        
+        currentQuestionIndex++;
+        if (currentQuestionIndex < quizData.length) {
+            showQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    // 結果表示
+    function showResult() {
+        document.getElementById('score').innerText = currentScore;
+        document.getElementById('username').value = '';
+        changeScreen('result-screen');
+    }
+
+    // スコアをLocalStorageに保存
+    function saveScore() {
+        const nameInput = document.getElementById('username').value.trim();
+        const name = nameInput || "名無しさん";
+        
+        // 既存のランキングデータを取得
+        let ranking = JSON.parse(localStorage.getItem('quiz_ranking')) || [];
+        
+        // 新しいデータを追加
+        ranking.push({ name: name, score: currentScore, date: new Date().getTime() });
+        
+        // スコアの高い順に並び替え
+        ranking.sort((a, b) => b.score - a.score);
+        
+        // 上位5件だけを残す
+        ranking = ranking.slice(0, 5);
+        
+        // LocalStorageに保存
+        localStorage.setItem('quiz_ranking', JSON.stringify(ranking));
+        
+        // ランキング画面へ
+        showRanking();
+    }
+
+    // ランキング画面の表示
+    function showRanking() {
+        changeScreen('ranking-screen');
+        const ranking = JSON.parse(localStorage.getItem('quiz_ranking')) || [];
+        const board = document.getElementById('ranking-board');
+        
+        if (ranking.length === 0) {
+            board.innerHTML = '<p>まだランキングデータがありません。</p>';
+            return;
+        }
+        
+        let html = '<ul class="ranking-list">';
+        ranking.forEach((item, index) => {
+            html += `
+                <li class="ranking-item">
+                    <span>${index + 1}位: ${item.name}</span>
+                    <span>${item.score}点</span>
+                </li>
+            `;
+        });
+        html += '</ul>';
+        board.innerHTML = html;
+    }
+
+    function goHome() {
+        changeScreen('start-screen');
+    }
+</script>
+</body>
+</html>
