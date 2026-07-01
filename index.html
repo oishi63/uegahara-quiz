@@ -70,7 +70,6 @@
             margin-bottom: 16px;
             box-sizing: border-box;
         }
-        /* タイムゲージの見た目 */
         .timer-container {
             width: 100%;
             background-color: #4e4e4e;
@@ -116,7 +115,6 @@
     <!-- クイズ画面 -->
     <div id="quiz-screen" class="screen">
         <div class="progress" id="progress">第 -- 問 / 10</div>
-        <!-- タイムゲージ -->
         <div class="timer-container">
             <div id="timer-bar" class="timer-bar"></div>
         </div>
@@ -143,22 +141,23 @@
 </div>
 
 <script>
-    // 【重要】あなたのSupabase情報をここに入力してください
-    const SUPABASE_URL = "https://vfavodpjxtwpgntaxrzf.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_8mKj4iiHpme95zNqxFSNwA_a8mJ5U5r";
+    // ==========================================
+    // 【最重要】ここにあなたのSupabaseの情報を正確に貼り付けてください
+    // ※ クォーテーション "" は消さないように注意してください。
+    // ==========================================
+    const SUPABASE_URL = "ここにProject URLを貼り付け";
+    const SUPABASE_ANON_KEY = "ここにAPI Key (anon public)を貼り付け";
 
-    let allQuestions = [];    // DBから取得した全問題リスト
-    let quizData = [];        // 今回プレイする厳選10問
+    let allQuestions = [];
+    let quizData = [];
     let currentQuestionIndex = 0;
     let currentScore = 0;
 
-    // タイマー用変数
-    const LIMIT_TIME = 10;    // 1問につき10秒
+    const LIMIT_TIME = 10;
     let timeLeft = LIMIT_TIME;
     let timerInterval = null;
     let questionStartTime = 0;
 
-    // 配列をシャッフルする汎用関数（フィッシャー・イェーツのシャッフル）
     function shuffle(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -167,39 +166,47 @@
         return array;
     }
 
-    // アプリ起動時にSupabaseから全問題を一括取得
-       // 【エラー診断付き】アプリ起動時にSupabaseから全問題を一括取得
+    // 起動時に自動実行される安全装置
+    async function initApp() {
+        // 貼り付けミスをチェックする
+        if (SUPABASE_URL.includes("ここにProject") || SUPABASE_ANON_KEY.includes("ここにAPI")) {
+            alert("❌ 設定エラー:\nURLまたはAPIキーが初期状態のままです。お使いのSupabaseの値に書き換えてください。");
+            document.getElementById('start-btn').innerText = "初期設定が必要です";
+            return;
+        }
+        if (SUPABASE_URL.endsWith('/')) {
+            alert("⚠️ 警告:\nSUPABASE_URLの最後に '/' が入っています。エラーの原因になるので消してください。");
+        }
+        
+        // 問題の読み込みを開始
+        await loadQuestions();
+    }
+
     async function loadQuestions() {
         try {
-            // URLの簡易チェック
-            if (SUPABASE_URL.endsWith('/')) {
-                alert("⚠️ 設定エラー: SUPABASE_URLの最後に '/' (スラッシュ) が入っています。消してください。");
-            }
-
             const response = await fetch(`${SUPABASE_URL}/rest/v1/questions`, {
                 method: "GET",
                 headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
             });
             
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`サーバーエラー (${response.status}): ${errorText}`);
+                const errText = await response.text();
+                throw new Error(`サーバー応答エラー (${response.status}): ${errText}`);
             }
             
             allQuestions = await response.json();
             
-            if (allQuestions.length > 0) {
+            if (allQuestions && allQuestions.length > 0) {
                 const startBtn = document.getElementById('start-btn');
                 startBtn.innerText = "スタート";
                 startBtn.disabled = false;
             } else {
-                document.getElementById('start-btn').innerText = "データベースに問題がありません";
-                alert("⚠️ 警告: Supabaseのquestionsテーブルにデータが1件も入っていません。");
+                document.getElementById('start-btn').innerText = "問題が0件です";
+                alert("⚠️ 接続は成功しましたが、Supabaseのquestionsテーブルにデータが1件も入っていません。データを登録してください。");
             }
         } catch (error) {
-            document.getElementById('start-btn').innerText = "通信エラーが発生しました";
-            alert("❌ 接続失敗エラー詳細:\n" + error.message);
-            console.error(error);
+            document.getElementById('start-btn').innerText = "通信エラー発生";
+            alert("❌ Supabaseへの接続に失敗しました。\n\n【エラー内容】\n" + error.message);
         }
     }
 
@@ -208,35 +215,26 @@
         document.getElementById(screenId).classList.add('active');
     }
 
-    // クイズ開始処理
     function startQuiz() {
         currentQuestionIndex = 0;
         currentScore = 0;
-        
-        // 1. 全問題からランダムに10問（DBの問題数が10問未満なら全問）を取り出す
         const shuffledList = shuffle([...allQuestions]);
         quizData = shuffledList.slice(0, 10);
-        
         changeScreen('quiz-screen');
         showQuestion();
     }
 
-    // 問題と選択肢を表示
     function showQuestion() {
         clearInterval(timerInterval);
-        
         const data = quizData[currentQuestionIndex];
         document.getElementById('progress').innerText = `第 ${currentQuestionIndex + 1} 問 / ${quizData.length}`;
         document.getElementById('question').innerText = data.question;
         
-        // 正解の文字列を退避させておく
         const correctText = data.choices[Number(data.answer)];
-        
-        // 2. 選択肢をランダムに並び替えるためのオブジェクト配列を作成
         let wrappedChoices = data.choices.map((text) => {
             return { text: text, isCorrect: (text === correctText) };
         });
-        wrappedChoices = shuffle(wrappedChoices); // 選択肢をランダムシャッフル
+        wrappedChoices = shuffle(wrappedChoices);
         
         const choicesContainer = document.getElementById('choices');
         choicesContainer.innerHTML = '';
@@ -249,7 +247,6 @@
             choicesContainer.appendChild(button);
         });
 
-        // 3. タイマーの開始（10秒）
         timeLeft = LIMIT_TIME;
         questionStartTime = Date.now();
         const timerBar = document.getElementById('timer-bar');
@@ -264,39 +261,17 @@
                 timeLeft = 0;
                 timerBar.style.width = "0%";
                 clearInterval(timerInterval);
-                // 時間切れ時は不正解扱いで次の問題へ
                 setTimeout(() => nextQuestion(), 600);
             } else {
                 timerBar.style.width = `${(timeLeft / LIMIT_TIME) * 100}%`;
                 if (timeLeft < 3) {
-                    timerBar.style.backgroundColor = "var(--danger-color)"; // 残り3秒で赤ゲージに
+                    timerBar.style.backgroundColor = "var(--danger-color)";
                 }
             }
         }, 50);
     }
 
-    // 解答チェック
     function checkAnswer(isCorrect) {
-        clearInterval(timerInterval); // タイマー停止
-
+        clearInterval(timerInterval);
         if (isCorrect) {
-            // 基本点1000点 ＋ 早押しボーナス（残り秒数×100点）
             const bonus = Math.round(timeLeft * 100);
-            currentScore += (1000 + bonus);
-        }
-        
-        nextQuestion();
-    }
-
-    function nextQuestion() {
-        currentQuestionIndex++;
-        if (currentQuestionIndex < quizData.length) {
-            showQuestion();
-        } else {
-            showResult();
-        }
-    }
-
-    function showResult() {
-        document.getElementById('score').innerText = currentScore.toLocaleString();
-        document.getElementById('username').value = '';
