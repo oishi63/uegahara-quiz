@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabaseクイズアプリ</title>
+    <title>爆速早押しクイズバトル</title>
     <style>
         :root {
-            --primary-color: #3ecf8e; /* Supabaseカラーの緑 */
-            --success-color: #2ec4b6;
-            --bg-color: #1c1c1c; /* ダークモード風 */
+            --primary-color: #3ecf8e;
+            --danger-color: #ff4a5a;
+            --bg-color: #1c1c1c;
             --card-color: #2e2e2e;
             --text-color: #ffffff;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
@@ -37,7 +37,7 @@
         .screen { display: none; }
         .active { display: block; }
         h1 { font-size: 24px; margin-bottom: 20px; color: var(--primary-color); }
-        h2 { font-size: 20px; margin-bottom: 16px; }
+        h2 { font-size: 20px; margin-bottom: 16px; min-height: 56px; }
         .btn {
             background-color: var(--primary-color);
             color: #1c1c1c;
@@ -48,18 +48,17 @@
             cursor: pointer;
             width: 100%;
             margin-bottom: 12px;
-            transition: background 0.2s, transform 0.1s;
+            transition: background 0.2s;
             font-weight: bold;
             box-sizing: border-box;
         }
-        .btn:active { transform: scale(0.98); background-color: #34b279; }
+        .btn:disabled { background-color: #4e4e4e; color: #aaa; cursor: not-allowed; }
         .choice-btn {
             background-color: #3e3e3e;
             color: var(--text-color);
             border: 2px solid #4e4e4e;
             text-align: left;
         }
-        .choice-btn:active { background-color: #4e4e4e; }
         .input-field {
             width: 100%;
             padding: 12px;
@@ -71,12 +70,22 @@
             margin-bottom: 16px;
             box-sizing: border-box;
         }
-        .ranking-list {
-            list-style: none;
-            padding: 0;
-            margin: 20px 0;
-            text-align: left;
+        /* タイムゲージの見た目 */
+        .timer-container {
+            width: 100%;
+            background-color: #4e4e4e;
+            border-radius: 10px;
+            height: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
         }
+        .timer-bar {
+            width: 100%;
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 0.1s linear, background-color 0.1s;
+        }
+        .ranking-list { list-style: none; padding: 0; margin: 20px 0; text-align: left; }
         .ranking-item {
             display: flex;
             justify-content: space-between;
@@ -98,15 +107,19 @@
 <div class="container">
     <!-- スタート画面 -->
     <div id="start-screen" class="screen active">
-        <h1>クイズに挑戦！</h1>
-        <p>全3問のクイズです。世界のスコアに挑もう！</p>
-        <button class="btn" onclick="startQuiz()">スタート</button>
+        <h1>早押しクイズバトル</h1>
+        <p>全10問のランダムクイズです。<br>早く答えるほど高得点！</p>
+        <button class="btn" id="start-btn" onclick="startQuiz()" disabled>問題を読み込み中...</button>
         <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">共通ランキングを見る</button>
     </div>
 
     <!-- クイズ画面 -->
     <div id="quiz-screen" class="screen">
-        <div class="progress" id="progress">第 1 問 / 3</div>
+        <div class="progress" id="progress">第 -- 問 / 10</div>
+        <!-- タイムゲージ -->
+        <div class="timer-container">
+            <div id="timer-bar" class="timer-bar"></div>
+        </div>
         <h2 id="question">問題文がここに入ります</h2>
         <div id="choices"></div>
     </div>
@@ -114,8 +127,8 @@
     <!-- 結果・名前入力画面 -->
     <div id="result-screen" class="screen">
         <h1>結果発表</h1>
-        <h2>あなたのスコア: <span id="score" style="color:var(--primary-color);">0</span> 点</h2>
-        <p>共通ランキングに名前を登録しよう！</p>
+        <h2>総・得点: <span id="score" style="color:var(--primary-color);">0</span> 点</h2>
+        <p>全国トップ10を狙って名前を登録しよう！</p>
         <input type="text" id="username" class="input-field" placeholder="名前を入力（最大8文字）" maxlength="8">
         <button class="btn" id="save-btn" onclick="saveScore()">スコアを送信</button>
         <div id="loading-text" class="loading" style="display:none;">Supabaseに保存中...</div>
@@ -124,60 +137,145 @@
     <!-- ランキング画面 -->
     <div id="ranking-screen" class="screen">
         <h1>🏆 トップ10 ランキング</h1>
-        <div id="ranking-board">
-            <p class="loading">最新データを読み込み中...</p>
-        </div>
+        <div id="ranking-board"></div>
         <button class="btn" onclick="goHome()">トップに戻る</button>
     </div>
 </div>
 
 <script>
     // 【重要】あなたのSupabase情報をここに入力してください
-    const SUPABASE_URL = "https://vfavodpjxtwpgntaxrzf.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_8mKj4iiHpme95zNqxFSNwA_a8mJ5U5r";
+    const SUPABASE_URL = "ここにProject URLを貼り付け";
+    const SUPABASE_ANON_KEY = "ここにAPI Key (anon public)を貼り付け";
 
-    const quizData = [
-        { question: "日本の現在の首都はどこ？", choices: ["京都", "東京", "大阪", "名古屋"], answer: 1 },
-        { question: "世界で一番高い山は？", choices: ["富士山", "キリマンジャロ", "エベレスト", "モンブラン"], answer: 2 },
-        { question: "水（H2O）を構成する元素は水素と何？", choices: ["炭素", "窒素", "酸素", "塩素"], answer: 2 }
-    ];
-
+    let allQuestions = [];    // DBから取得した全問題リスト
+    let quizData = [];        // 今回プレイする厳選10問
     let currentQuestionIndex = 0;
     let currentScore = 0;
+
+    // タイマー用変数
+    const LIMIT_TIME = 10;    // 1問につき10秒
+    let timeLeft = LIMIT_TIME;
+    let timerInterval = null;
+    let questionStartTime = 0;
+
+    // 配列をシャッフルする汎用関数（フィッシャー・イェーツのシャッフル）
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // アプリ起動時にSupabaseから全問題を一括取得
+    async function loadQuestions() {
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/questions`, {
+                method: "GET",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            if (!response.ok) throw new Error("問題の取得に失敗しました");
+            allQuestions = await response.json();
+            
+            if (allQuestions.length > 0) {
+                const startBtn = document.getElementById('start-btn');
+                startBtn.innerText = "スタート";
+                startBtn.disabled = false;
+            } else {
+                document.getElementById('start-btn').innerText = "データベースに問題がありません";
+            }
+        } catch (error) {
+            document.getElementById('start-btn').innerText = "通信エラーが発生しました";
+            console.error(error);
+        }
+    }
 
     function changeScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
     }
 
+    // クイズ開始処理
     function startQuiz() {
         currentQuestionIndex = 0;
         currentScore = 0;
+        
+        // 1. 全問題からランダムに10問（DBの問題数が10問未満なら全問）を取り出す
+        const shuffledList = shuffle([...allQuestions]);
+        quizData = shuffledList.slice(0, 10);
+        
         changeScreen('quiz-screen');
         showQuestion();
     }
 
+    // 問題と選択肢を表示
     function showQuestion() {
+        clearInterval(timerInterval);
+        
         const data = quizData[currentQuestionIndex];
         document.getElementById('progress').innerText = `第 ${currentQuestionIndex + 1} 問 / ${quizData.length}`;
         document.getElementById('question').innerText = data.question;
         
+        // 正解の文字列を退避させておく
+        const correctText = data.choices[Number(data.answer)];
+        
+        // 2. 選択肢をランダムに並び替えるためのオブジェクト配列を作成
+        let wrappedChoices = data.choices.map((text) => {
+            return { text: text, isCorrect: (text === correctText) };
+        });
+        wrappedChoices = shuffle(wrappedChoices); // 選択肢をランダムシャッフル
+        
         const choicesContainer = document.getElementById('choices');
         choicesContainer.innerHTML = '';
         
-        data.choices.forEach((choice, index) => {
+        wrappedChoices.forEach((choice) => {
             const button = document.createElement('button');
-            button.innerText = choice;
+            button.innerText = choice.text;
             button.className = 'btn choice-btn';
-            button.onclick = () => checkAnswer(index);
+            button.onclick = () => checkAnswer(choice.isCorrect);
             choicesContainer.appendChild(button);
         });
+
+        // 3. タイマーの開始（10秒）
+        timeLeft = LIMIT_TIME;
+        questionStartTime = Date.now();
+        const timerBar = document.getElementById('timer-bar');
+        timerBar.style.width = "100%";
+        timerBar.style.backgroundColor = "var(--primary-color)";
+
+        timerInterval = setInterval(() => {
+            const elapsed = (Date.now() - questionStartTime) / 1000;
+            timeLeft = LIMIT_TIME - elapsed;
+
+            if (timeLeft <= 0) {
+                timeLeft = 0;
+                timerBar.style.width = "0%";
+                clearInterval(timerInterval);
+                // 時間切れ時は不正解扱いで次の問題へ
+                setTimeout(() => nextQuestion(), 600);
+            } else {
+                timerBar.style.width = `${(timeLeft / LIMIT_TIME) * 100}%`;
+                if (timeLeft < 3) {
+                    timerBar.style.backgroundColor = "var(--danger-color)"; // 残り3秒で赤ゲージに
+                }
+            }
+        }, 50);
     }
 
-    function checkAnswer(selectedIndex) {
-        if (selectedIndex === quizData[currentQuestionIndex].answer) {
-            currentScore += 10;
+    // 解答チェック
+    function checkAnswer(isCorrect) {
+        clearInterval(timerInterval); // タイマー停止
+
+        if (isCorrect) {
+            // 基本点1000点 ＋ 早押しボーナス（残り秒数×100点）
+            const bonus = Math.round(timeLeft * 100);
+            currentScore += (1000 + bonus);
         }
+        
+        nextQuestion();
+    }
+
+    function nextQuestion() {
         currentQuestionIndex++;
         if (currentQuestionIndex < quizData.length) {
             showQuestion();
@@ -187,97 +285,5 @@
     }
 
     function showResult() {
-        document.getElementById('score').innerText = currentScore;
+        document.getElementById('score').innerText = currentScore.toLocaleString();
         document.getElementById('username').value = '';
-        document.getElementById('save-btn').disabled = false;
-        document.getElementById('loading-text').style.display = 'none';
-        changeScreen('result-screen');
-    }
-
-    // Supabaseにデータを保存する
-    // 【改良版】エラー詳細を表示する保存・取得関数
-    // スコアを送信・保存する関数
-    async function saveScore() {
-        const nameInput = document.getElementById('username').value.trim();
-        
-        // 【修正ポイント】空欄の場合は「名無し」にする
-        const name = nameInput || "名無し";
-        
-        document.getElementById('save-btn').disabled = true;
-        document.getElementById('loading-text').style.display = 'block';
-
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
-                method: "POST",
-                headers: {
-                    "apikey": SUPABASE_ANON_KEY,
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ name: name, score: currentScore })
-            });
-
-            if (!response.ok) throw new Error(await response.text());
-            
-            showRanking();
-        } catch (error) {
-            alert("⚠️ 保存エラー詳細: " + error.message);
-            document.getElementById('save-btn').disabled = false;
-            document.getElementById('loading-text').style.display = 'none';
-        }
-    }
-
-
-
-    // Supabaseから現在のランキングを取得する（トップ10）
-    async function showRanking() {
-        changeScreen('ranking-screen');
-        const board = document.getElementById('ranking-board');
-        board.innerHTML = '<p class="loading">最新データを読み込み中...</p>';
-        
-        try {
-            // スコアの高い順に並び替えて上位10件を取得
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?order=score.desc&limit=10`, {
-                method: "GET",
-                headers: {
-                    "apikey": SUPABASE_ANON_KEY,
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
-                }
-            });
-
-            if (!response.ok) throw new Error("取得失敗");
-            
-            const ranking = await response.json();
-            renderRanking(ranking);
-        } catch (error) {
-            board.innerHTML = '<p>データの取得に失敗しました。</p>';
-        }
-    }
-
-    function renderRanking(ranking) {
-        const board = document.getElementById('ranking-board');
-        
-        if (!ranking || ranking.length === 0) {
-            board.innerHTML = '<p>まだランキングデータがありません。</p>';
-            return;
-        }
-        
-        let html = '<ul class="ranking-list">';
-        ranking.forEach((item, index) => {
-            html += `
-                <li class="ranking-item">
-                    <span>${index + 1}位: ${item.name}</span>
-                    <span>${item.score}点</span>
-                </li>
-            `;
-        });
-        html += '</ul>';
-        board.innerHTML = html;
-    }
-
-    function goHome() {
-        changeScreen('start-screen');
-    }
-</script>
-</body>
-</html>
