@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>クイズ＆ランキングアプリ</title>
+    <title>Supabaseクイズアプリ</title>
     <style>
         :root {
-            --primary-color: #4a90e2;
+            --primary-color: #3ecf8e; /* Supabaseカラーの緑 */
             --success-color: #2ec4b6;
-            --bg-color: #f0f4f8;
-            --card-color: #ffffff;
-            --text-color: #333333;
+            --bg-color: #1c1c1c; /* ダークモード風 */
+            --card-color: #2e2e2e;
+            --text-color: #ffffff;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -27,7 +27,7 @@
         .container {
             background: var(--card-color);
             border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             padding: 24px;
             width: 100%;
             max-width: 400px;
@@ -40,7 +40,7 @@
         h2 { font-size: 20px; margin-bottom: 16px; }
         .btn {
             background-color: var(--primary-color);
-            color: white;
+            color: #1c1c1c;
             border: none;
             padding: 14px 20px;
             font-size: 16px;
@@ -52,19 +52,21 @@
             font-weight: bold;
             box-sizing: border-box;
         }
-        .btn:active { transform: scale(0.98); background-color: #357abd; }
+        .btn:active { transform: scale(0.98); background-color: #34b279; }
         .choice-btn {
-            background-color: #f8f9fa;
+            background-color: #3e3e3e;
             color: var(--text-color);
-            border: 2px solid #e9ecef;
+            border: 2px solid #4e4e4e;
             text-align: left;
         }
-        .choice-btn:active { background-color: #e9ecef; }
+        .choice-btn:active { background-color: #4e4e4e; }
         .input-field {
             width: 100%;
             padding: 12px;
             font-size: 16px;
-            border: 2px solid #ddd;
+            border: 2px solid #4e4e4e;
+            background-color: #3e3e3e;
+            color: white;
             border-radius: 8px;
             margin-bottom: 16px;
             box-sizing: border-box;
@@ -79,15 +81,16 @@
             display: flex;
             justify-content: space-between;
             padding: 10px 14px;
-            background: #f8f9fa;
+            background: #3e3e3e;
             margin-bottom: 8px;
             border-radius: 6px;
             font-weight: bold;
         }
-        .ranking-item:nth-child(1) { background: #fff3cd; color: #856404; }
-        .ranking-item:nth-child(2) { background: #e2e3e5; color: #383d41; }
-        .ranking-item:nth-child(3) { background: #f8d7da; color: #721c24; }
-        .progress { font-size: 14px; color: #666; margin-bottom: 10px; }
+        .ranking-item:nth-child(1) { background: #ffd700; color: #1c1c1c; }
+        .ranking-item:nth-child(2) { background: #c0c0c0; color: #1c1c1c; }
+        .ranking-item:nth-child(3) { background: #cd7f32; color: #1c1c1c; }
+        .progress { font-size: 14px; color: #aaa; margin-bottom: 10px; }
+        .loading { color: #aaa; font-style: italic; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -96,69 +99,57 @@
     <!-- スタート画面 -->
     <div id="start-screen" class="screen active">
         <h1>クイズに挑戦！</h1>
-        <p>全3問のクイズです。ハイスコアを目指そう！</p>
+        <p>全3問のクイズです。世界のスコアに挑もう！</p>
         <button class="btn" onclick="startQuiz()">スタート</button>
-        <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">ランキングを見る</button>
+        <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">共通ランキングを見る</button>
     </div>
 
     <!-- クイズ画面 -->
     <div id="quiz-screen" class="screen">
         <div class="progress" id="progress">第 1 問 / 3</div>
         <h2 id="question">問題文がここに入ります</h2>
-        <div id="choices">
-            <!-- 選択肢ボタンが自動生成されます -->
-        </div>
+        <div id="choices"></div>
     </div>
 
     <!-- 結果・名前入力画面 -->
     <div id="result-screen" class="screen">
         <h1>結果発表</h1>
-        <h2>あなたのスコア: <span id="score" style="color:var(--success-color);">0</span> 点</h2>
-        <p>ランキングに名前を登録しよう！</p>
+        <h2>あなたのスコア: <span id="score" style="color:var(--primary-color);">0</span> 点</h2>
+        <p>共通ランキングに名前を登録しよう！</p>
         <input type="text" id="username" class="input-field" placeholder="名前を入力（最大8文字）" maxlength="8">
-        <button class="btn" onclick="saveScore()">スコアを保存</button>
+        <button class="btn" id="save-btn" onclick="saveScore()">スコアを送信</button>
+        <div id="loading-text" class="loading" style="display:none;">Supabaseに保存中...</div>
     </div>
 
     <!-- ランキング画面 -->
     <div id="ranking-screen" class="screen">
         <h1>🏆 トップ5 ランキング</h1>
         <div id="ranking-board">
-            <!-- ランキングがここに入ります -->
+            <p class="loading">最新データを読み込み中...</p>
         </div>
         <button class="btn" onclick="goHome()">トップに戻る</button>
     </div>
 </div>
 
 <script>
-    // クイズのデータ（ここを書き換えるだけで問題を変更できます）
+    // 【重要】あなたのSupabase情報をここに入力してください
+    const SUPABASE_URL = "https://vfavodpjxtwpgntaxrzf.supabase.co/rest/v1/";
+    const SUPABASE_ANON_KEY = "sb_publishable_8mKj4iiHpme95zNqxFSNwA_a8mJ5U5r";
+
     const quizData = [
-        {
-            question: "日本の現在の首都はどこ？",
-            choices: ["京都", "東京", "大阪", "名古屋"],
-            answer: 1 // 0から数えて1番目（東京）が正解
-        },
-        {
-            question: "世界で一番高い山は？",
-            choices: ["富士山", "キリマンジャロ", "エベレスト", "モンブラン"],
-            answer: 2 // エベレスト
-        },
-        {
-            question: "水（H2O）を構成する元素は水素と何？",
-            choices: ["炭素", "窒素", "酸素", "塩素"],
-            answer: 2 // 酸素
-        }
+        { question: "日本の現在の首都はどこ？", choices: ["京都", "東京", "大阪", "名古屋"], answer: 1 },
+        { question: "世界で一番高い山は？", choices: ["富士山", "キリマンジャロ", "エベレスト", "モンブラン"], answer: 2 },
+        { question: "水（H2O）を構成する元素は水素と何？", choices: ["炭素", "窒素", "酸素", "塩素"], answer: 2 }
     ];
 
     let currentQuestionIndex = 0;
     let currentScore = 0;
 
-    // 画面切り替え関数
     function changeScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
     }
 
-    // クイズ開始
     function startQuiz() {
         currentQuestionIndex = 0;
         currentScore = 0;
@@ -166,7 +157,6 @@
         showQuestion();
     }
 
-    // 問題表示
     function showQuestion() {
         const data = quizData[currentQuestionIndex];
         document.getElementById('progress').innerText = `第 ${currentQuestionIndex + 1} 問 / ${quizData.length}`;
@@ -184,12 +174,10 @@
         });
     }
 
-    // 回答チェック
     function checkAnswer(selectedIndex) {
         if (selectedIndex === quizData[currentQuestionIndex].answer) {
-            currentScore += 10; // 1問正解で10点
+            currentScore += 10;
         }
-        
         currentQuestionIndex++;
         if (currentQuestionIndex < quizData.length) {
             showQuestion();
@@ -198,44 +186,74 @@
         }
     }
 
-    // 結果表示
     function showResult() {
         document.getElementById('score').innerText = currentScore;
         document.getElementById('username').value = '';
+        document.getElementById('save-btn').disabled = false;
+        document.getElementById('loading-text').style.display = 'none';
         changeScreen('result-screen');
     }
 
-    // スコアをLocalStorageに保存
-    function saveScore() {
+    // Supabaseにデータを保存する
+    async function saveScore() {
         const nameInput = document.getElementById('username').value.trim();
         const name = nameInput || "名無しさん";
         
-        // 既存のランキングデータを取得
-        let ranking = JSON.parse(localStorage.getItem('quiz_ranking')) || [];
-        
-        // 新しいデータを追加
-        ranking.push({ name: name, score: currentScore, date: new Date().getTime() });
-        
-        // スコアの高い順に並び替え
-        ranking.sort((a, b) => b.score - a.score);
-        
-        // 上位5件だけを残す
-        ranking = ranking.slice(0, 5);
-        
-        // LocalStorageに保存
-        localStorage.setItem('quiz_ranking', JSON.stringify(ranking));
-        
-        // ランキング画面へ
-        showRanking();
+        document.getElementById('save-btn').disabled = true;
+        document.getElementById('loading-text').style.display = 'block';
+
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
+                method: "POST",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Content-Type": "application/json",
+                    "Prefer": "return=representation"
+                },
+                body: JSON.stringify({ name: name, score: currentScore })
+            });
+
+            if (!response.ok) throw new Error("保存失敗");
+            
+            // 保存が成功したら最新のランキングを表示
+            showRanking();
+        } catch (error) {
+            alert("データの保存に失敗しました。設定を確認してください。");
+            document.getElementById('save-btn').disabled = false;
+            document.getElementById('loading-text').style.display = 'none';
+        }
     }
 
-    // ランキング画面の表示
-    function showRanking() {
+    // Supabaseから現在のランキングを取得する（トップ5）
+    async function showRanking() {
         changeScreen('ranking-screen');
-        const ranking = JSON.parse(localStorage.getItem('quiz_ranking')) || [];
+        const board = document.getElementById('ranking-board');
+        board.innerHTML = '<p class="loading">最新データを読み込み中...</p>';
+        
+        try {
+            // スコアの高い順に並び替えて上位5件を取得
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?order=score.desc&limit=5`, {
+                method: "GET",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            });
+
+            if (!response.ok) throw new Error("取得失敗");
+            
+            const ranking = await response.json();
+            renderRanking(ranking);
+        } catch (error) {
+            board.innerHTML = '<p>データの取得に失敗しました。</p>';
+        }
+    }
+
+    function renderRanking(ranking) {
         const board = document.getElementById('ranking-board');
         
-        if (ranking.length === 0) {
+        if (!ranking || ranking.length === 0) {
             board.innerHTML = '<p>まだランキングデータがありません。</p>';
             return;
         }
