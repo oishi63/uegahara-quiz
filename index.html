@@ -195,35 +195,27 @@
     }
 
     // Supabaseにデータを保存する
-    async function saveScore() {
-        const nameInput = document.getElementById('username').value.trim();
-        const name = nameInput || "名無しさん";
-        
-        document.getElementById('save-btn').disabled = true;
-        document.getElementById('loading-text').style.display = 'block';
-
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
-                method: "POST",
-                headers: {
-                    "apikey": SUPABASE_ANON_KEY,
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                    "Content-Type": "application/json",
-                    "Prefer": "return=representation"
-                },
-                body: JSON.stringify({ name: name, score: currentScore })
-            });
-
-            if (!response.ok) throw new Error("保存失敗");
-            
-            // 保存が成功したら最新のランキングを表示
-            showRanking();
-        } catch (error) {
-            alert("データの保存に失敗しました。設定を確認してください。");
-            document.getElementById('save-btn').disabled = false;
-            document.getElementById('loading-text').style.display = 'none';
-        }
+    // 【改良版】エラー詳細を表示する保存・取得関数
+async function saveScore() {
+    // ... (ユーザー名の取得やボタン無効化処理)
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
+            method: "POST",
+            headers: {
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ name: name, score: currentScore })
+        });
+        if (!response.ok) throw new Error(await response.text()); // エラー発生時の詳細を取得
+        showRanking();
+    } catch (error) {
+        alert("⚠️ 保存エラー詳細: " + error.message);
     }
+}
+// ... (showRanking関数も同様にエラー内容を画面表示するよう修正)
+
 
     // Supabaseから現在のランキングを取得する（トップ5）
     async function showRanking() {
