@@ -168,13 +168,24 @@
     }
 
     // アプリ起動時にSupabaseから全問題を一括取得
+       // 【エラー診断付き】アプリ起動時にSupabaseから全問題を一括取得
     async function loadQuestions() {
         try {
+            // URLの簡易チェック
+            if (SUPABASE_URL.endsWith('/')) {
+                alert("⚠️ 設定エラー: SUPABASE_URLの最後に '/' (スラッシュ) が入っています。消してください。");
+            }
+
             const response = await fetch(`${SUPABASE_URL}/rest/v1/questions`, {
                 method: "GET",
                 headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
             });
-            if (!response.ok) throw new Error("問題の取得に失敗しました");
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`サーバーエラー (${response.status}): ${errorText}`);
+            }
+            
             allQuestions = await response.json();
             
             if (allQuestions.length > 0) {
@@ -183,9 +194,11 @@
                 startBtn.disabled = false;
             } else {
                 document.getElementById('start-btn').innerText = "データベースに問題がありません";
+                alert("⚠️ 警告: Supabaseのquestionsテーブルにデータが1件も入っていません。");
             }
         } catch (error) {
             document.getElementById('start-btn').innerText = "通信エラーが発生しました";
+            alert("❌ 接続失敗エラー詳細:\n" + error.message);
             console.error(error);
         }
     }
