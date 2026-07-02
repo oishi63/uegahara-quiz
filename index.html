@@ -313,10 +313,10 @@
             clickedButton.innerText = "❌ 不正解... " + clickedButton.innerText;
         }
         
-        // 2秒間、画面の色を確認させてから次の問題へ進む
+        // 1.7秒間、画面の色を確認させてから次の問題へ進む
         setTimeout(() => {
             nextQuestion();
-        }, 2000);
+        }, 1700);
     }
     function nextQuestion() {
         currentQuestionIndex++;
