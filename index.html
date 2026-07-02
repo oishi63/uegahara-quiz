@@ -8,9 +8,9 @@
         :root {
             --primary-color: #2ec4b6; /* 爽やかなミントブルー */
             --danger-color: #ff4a5a;
-            --bg-color: #f4f7f6;     /* 【変更】明るい薄グレーの背景 */
-            --card-color: #ffffff;   /* 【変更】カード背景は真っ白 */
-            --text-color: #2c3e50;   /* 【変更】文字色は見やすい濃いグレー */
+            --bg-color: #f4f7f6;     /* 明るい薄グレーの背景 */
+            --card-color: #ffffff;   /* カード背景は真っ白 */
+            --text-color: #2c3e50;   /* 文字色は見やすい濃いグレー */
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -118,22 +118,24 @@
         .progress { font-size: 14px; color: #64748b; margin-bottom: 10px; }
         .loading { color: #64748b; font-style: italic; margin: 10px 0; }
         .my-rank-text { font-size: 18px; margin: 12px 0; color: #b45309; font-weight: bold; }
+        .save-status-text { font-size: 14px; color: #4b5563; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 
 <body>
 
 <div class="container">
-    <!-- スタート画面 -->
     <div id="start-screen" class="screen active">
         <h1>上ヶ原クイズ</h1>
-        <div class="version-text">v1.0</div> 
-        <p>全10問のランダムクイズです。<br>早く答えるほど高得点！<br>君の上ヶ原への愛を示せ！</p>
+        <div class="version-text">v1.2</div> 
+        <p>全10問のランダムクイズです。<br>早く答えるほど高得点！<br>君の上ヶ原への愛はいかに！</p>
+        
+        <input type="text" id="username" class="input-field" placeholder="ニックネームを入力（最大8文字）" maxlength="8" oninput="checkInputName()">
+        
         <button class="btn" id="start-btn" onclick="startQuiz()" disabled>問題を読み込み中...</button>
         <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">共通ランキングを見る</button>
     </div>
 
-    <!-- クイズ画面 -->
     <div id="quiz-screen" class="screen">
         <div class="progress" id="progress">第 -- 問 / 10</div>
         <div class="timer-container">
@@ -143,34 +145,24 @@
         <div id="choices"></div>
     </div>
 
-    <!-- 結果・名前入力画面 -->
     <div id="result-screen" class="screen">
         <h1>結果発表</h1>
         <h2>スコア: <span id="score" style="color:var(--primary-color);">0</span> 点</h2>
         
-        <!-- 暫定順位の表示エリア -->
         <div id="my-rank" class="my-rank-text">順位を計算中...</div>
+        <div id="save-status" class="save-status-text">Supabaseに保存中...</div>
         
-        <p>ランキングに名前を残しますか？</p>
-        <input type="text" id="username" class="input-field" placeholder="名前を入力（最大8文字）" maxlength="8">
-        
-        <!-- その場で登録するか選べる2つのボタン -->
-        <button class="btn" id="save-btn" onclick="saveScore()">登録する</button>
-        <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">登録しないでランキングを見る</button>
-        <div id="loading-text" class="loading" style="display:none;">Supabaseに保存中...</div>
+        <button class="btn" onclick="showRanking()" style="margin-top: 20px;">ランキングを見る</button>
     </div>
 
-    <!-- ランキング画面 -->
     <div id="ranking-screen" class="screen">
         <h1>🏆 トップ10 ランキング</h1>
         <div id="ranking-board"></div>
         <button class="btn" onclick="goHome()">トップに戻る</button>
     </div>
 </div>
+
 <script>
-    // ==========================================
-    // 【最重要】ここにあなたのSupabaseの情報を正確に貼り付けてください
-    // ==========================================
     const SUPABASE_URL = "https://vfavodpjxtwpgntaxrzf.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_8mKj4iiHpme95zNqxFSNwA_a8mJ5U5r";
 
@@ -178,6 +170,8 @@
     let quizData = [];
     let currentQuestionIndex = 0;
     let currentScore = 0;
+    let registeredName = ""; 
+    let isQuestionsLoaded = false; 
 
     const LIMIT_TIME = 20;
     let timeLeft = LIMIT_TIME;
@@ -201,6 +195,13 @@
         if (SUPABASE_URL.endsWith('/')) {
             alert("⚠️ 警告:\nSUPABASE_URLの最後に '/' が入っています。エラーの原因になるので消してください。");
         }
+
+        // 【追加】ローカルストレージから前回のニックネームを復元
+        const savedName = localStorage.getItem('quiz_nickname');
+        if (savedName) {
+            document.getElementById('username').value = savedName;
+        }
+
         await loadQuestions();
     }
 
@@ -216,9 +217,8 @@
             }
             allQuestions = await response.json();
             if (allQuestions && allQuestions.length > 0) {
-                const startBtn = document.getElementById('start-btn');
-                startBtn.innerText = "スタート";
-                startBtn.disabled = false;
+                isQuestionsLoaded = true;
+                checkInputName(); 
             } else {
                 document.getElementById('start-btn').innerText = "問題が0件です";
                 alert("⚠️ 接続は成功しましたが、Supabaseのquestionsテーブルにデータが1件も入っていません。");
@@ -229,19 +229,84 @@
         }
     }
 
+    function checkInputName() {
+        const nameInput = document.getElementById('username').value.trim();
+        const startBtn = document.getElementById('start-btn');
+        if (isQuestionsLoaded) {
+            if (nameInput.length > 0) {
+                startBtn.innerText = "スタート";
+                startBtn.disabled = false;
+            } else {
+                startBtn.innerText = "ニックネームを入力してください";
+                startBtn.disabled = true;
+            }
+        }
+    }
+
     function changeScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
     }
 
-    function startQuiz() {
-        currentQuestionIndex = 0;
-        currentScore = 0;
-        const shuffledList = shuffle([...allQuestions]);
-        quizData = shuffledList.slice(0, 10);
-        changeScreen('quiz-screen');
-        showQuestion();
+   // 【修正版】名前が重複していても確認後に処理を継続できるスタート処理
+    async function startQuiz() {
+        const startBtn = document.getElementById('start-btn');
+        const inputName = document.getElementById('username').value.trim();
+        registeredName = inputName || "名無し";
+        
+        // ボタンを一時的に無効化
+        startBtn.disabled = true;
+        startBtn.innerText = "名前をチェック中...";
+
+        const localSavedName = localStorage.getItem('quiz_nickname');
+
+        try {
+            // 入力された名前がブラウザに記憶されている名前と違う場合のみ重複チェック
+            if (registeredName !== localSavedName) {
+                
+                // Supabaseに同じ名前がすでに登録されているか照会
+                const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&limit=1`;
+                const checkResponse = await fetch(checkUrl, {
+                    method: "GET",
+                    headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+                });
+
+                if (!checkResponse.ok) throw new Error("名前の重複チェックに失敗しました");
+                const existingRecords = await checkResponse.json();
+
+                // すでに同じ名前が存在する場合
+                if (existingRecords.length > 0) {
+                    // 【ここを変更】警告ではなく、ユーザーに続行するかどうか選択させる
+                    const proceed = confirm(
+                        `⚠️ 「${registeredName}」というニックネームはすでに使用されています。\n\nこのままプレイを続行しますか？\n（ハイスコアを獲得した場合、既存のランキングデータは上書きされます）`
+                    );
+                    
+                    // 「キャンセル（いいえ）」が押されたら処理を中断
+                    if (!proceed) {
+                        startBtn.disabled = false;
+                        startBtn.innerText = "スタート";
+                        return; 
+                    }
+                }
+            }
+
+            // 重複がない、またはユーザーが「はい」を選んだ場合はクイズ開始
+            localStorage.setItem('quiz_nickname', registeredName);
+
+            currentQuestionIndex = 0;
+            currentScore = 0;
+            const shuffledList = shuffle([...allQuestions]);
+            quizData = shuffledList.slice(0, 10);
+            changeScreen('quiz-screen');
+            showQuestion();
+
+        } catch (error) {
+            alert("⚠️ エラーが発生しました:\n" + error.message);
+            startBtn.disabled = false;
+            startBtn.innerText = "スタート";
+        }
     }
+
     function showQuestion() {
         clearInterval(timerInterval);
         const data = quizData[currentQuestionIndex];
@@ -295,7 +360,7 @@
         buttons.forEach(btn => btn.disabled = true);
     }
 
-     // 【修正版】その場で正解・不正解の色をつける関数
+   // 【修正版】ゲームバランスを見直した点数計算ロジック
     function checkAnswer(isCorrect, clickedButton) {
         clearInterval(timerInterval); // タイマー停止
         disableAllButtons(); // 他のボタンを押せないようにロック
@@ -305,12 +370,17 @@
             clickedButton.classList.add('correct-choice');
             clickedButton.innerText = "⭕" + clickedButton.innerText;
             
-            const bonus = Math.round(timeLeft * 100);
+            // タイムボーナスの影響をこれまでの1/10に縮小（最大20秒 × 10 = 200点）
+            const bonus = Math.round(timeLeft * 10); 
+            // 基本点 1,000点 + タイムボーナス（0〜200点）
             currentScore += (1000 + bonus);
         } else {
-            // 【不正解の場合】押したボタンだけを赤色にする（正解ボタンの強調はしない）
+            // 【不正解の場合】押したボタンだけを赤色にする
             clickedButton.classList.add('wrong-choice');
             clickedButton.innerText = "❌" + clickedButton.innerText;
+            
+            // 不正解ペナルティとして500点マイナス（※0点未満にはならないようにする）
+            currentScore = Math.max(0, currentScore - 500);
         }
         
         // 1.7秒間、画面の色を確認させてから次の問題へ進む
@@ -318,6 +388,7 @@
             nextQuestion();
         }, 1700);
     }
+
     function nextQuestion() {
         currentQuestionIndex++;
         if (currentQuestionIndex < quizData.length) {
@@ -329,11 +400,11 @@
 
     async function showResult() {
         document.getElementById('score').innerText = currentScore.toLocaleString();
-        document.getElementById('username').value = '';
-        document.getElementById('save-btn').disabled = false;
-        document.getElementById('loading-text').style.display = 'none';
         document.getElementById('my-rank').innerText = "現在の順位を計算中...";
+        document.getElementById('save-status').innerText = "スコアを確認中...";
         changeScreen('result-screen');
+
+        await autoSaveScore();
 
         try {
             const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?score=gt.${currentScore}`, {
@@ -361,14 +432,39 @@
         }
     }
 
-    async function saveScore() {
-        const nameInput = document.getElementById('username').value.trim();
-        const name = nameInput || "名無し";
-        
-        document.getElementById('save-btn').disabled = true;
-        document.getElementById('loading-text').style.display = 'block';
-
+  // 【完全解決版】既存データを削除してから登録する安全な上書きロジック
+    async function autoSaveScore() {
+        const statusText = document.getElementById('save-status');
         try {
+            // ① 同じニックネームの過去レコードを1件取得（ハイスコア確認用）
+            const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&order=score.desc&limit=1`;
+            const checkResponse = await fetch(checkUrl, {
+                method: "GET",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+
+            if (!checkResponse.ok) throw new Error("過去のスコア照会に失敗しました");
+            const existingRecords = await checkResponse.json();
+
+            // ② 自己ベスト判定
+            if (existingRecords.length > 0) {
+                const pastHighScore = existingRecords[0].score;
+                if (currentScore <= pastHighScore) {
+                    statusText.innerText = `💡 自己ベスト（${pastHighScore.toLocaleString()}点）を超えなかったため、ランキングは更新されませんでした。`;
+                    return; // スコアが低ければここで終了
+                }
+
+                // 【ここがポイント】古いスコアの方が低ければ、先にその古いレコードを削除する
+                statusText.innerText = "古いデータを整理中...";
+                const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}`, {
+                    method: "DELETE",
+                    headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+                });
+                if (!deleteResponse.ok) throw new Error("古いデータの削除に失敗しました");
+            }
+
+            // ③ 新しいハイスコアをクリーンに新規登録（POST）
+            statusText.innerText = "最新の自己ベストを保存中...";
             const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
                 method: "POST",
                 headers: {
@@ -376,14 +472,18 @@
                     "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ name: name, score: currentScore })
+                body: JSON.stringify({ name: registeredName, score: currentScore })
             });
-            if (!response.ok) throw new Error(await response.text());
-            showRanking();
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`新規登録エラー: ${errText}`);
+            }
+            statusText.innerText = "✨ 自己ベストが更新され、ランキングに登録されました！";
+
         } catch (error) {
-            alert("⚠️ 保存エラー詳細: " + error.message);
-            document.getElementById('save-btn').disabled = false;
-            document.getElementById('loading-text').style.display = 'none';
+            statusText.innerText = "⚠️ スコアの自動保存に失敗しました。";
+            console.error("エラー詳細:", error);
         }
     }
 
@@ -424,7 +524,15 @@
         board.innerHTML = html;
     }
 
-    function goHome() { changeScreen('start-screen'); }
+    function goHome() {
+        // 【修正】トップに戻っても名前は消さずに残す（そのまま連続プレイ可能に）
+        const savedName = localStorage.getItem('quiz_nickname');
+        if (savedName) {
+            document.getElementById('username').value = savedName;
+        }
+        checkInputName();
+        changeScreen('start-screen');
+    }
 
     window.onload = initApp;
 </script>
