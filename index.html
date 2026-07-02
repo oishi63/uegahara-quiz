@@ -379,8 +379,8 @@
             clickedButton.classList.add('wrong-choice');
             clickedButton.innerText = "❌" + clickedButton.innerText;
             
-            // 不正解ペナルティとして500点マイナス（※0点未満にはならないようにする）
-            currentScore = Math.max(0, currentScore - 500);
+            // 不正解ペナルティとして100点マイナス（※0点未満にはならないようにする）
+            currentScore = Math.max(0, currentScore - 100);
         }
         
         // 1.7秒間、画面の色を確認させてから次の問題へ進む
