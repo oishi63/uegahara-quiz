@@ -171,7 +171,7 @@
     let currentQuestionIndex = 0;
     let currentScore = 0;
 
-    const LIMIT_TIME = 10;
+    const LIMIT_TIME = 20;
     let timeLeft = LIMIT_TIME;
     let timerInterval = null;
     let questionStartTime = 0;
@@ -264,7 +264,7 @@
         timerBar.style.backgroundColor = "var(--primary-color)";
 
         timerInterval = setInterval(() => {
-            const elapsed = (Date.now() - questionStartTime) / 2000;
+            const elapsed = (Date.now() - questionStartTime) / 1000;
             timeLeft = LIMIT_TIME - elapsed;
 
             if (timeLeft <= 0) {
@@ -272,7 +272,7 @@
                 timerBar.style.width = "0%";
                 clearInterval(timerInterval);
                 disableAllButtons();
-                setTimeout(() => nextQuestion(), 3000);
+                setTimeout(() => nextQuestion(), 1500);
             } else {
                 timerBar.style.width = `${(timeLeft / LIMIT_TIME) * 100}%`;
                 if (timeLeft < 3) {
@@ -305,10 +305,10 @@
             clickedButton.innerText = "❌ 不正解... " + clickedButton.innerText;
         }
         
-        // 1.5秒間、画面の色を確認させてから次の問題へ進む
+        // 2秒間、画面の色を確認させてから次の問題へ進む
         setTimeout(() => {
             nextQuestion();
-        }, 1500);
+        }, 2000);
     }
     function nextQuestion() {
         currentQuestionIndex++;
