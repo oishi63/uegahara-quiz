@@ -264,7 +264,7 @@
         timerBar.style.backgroundColor = "var(--primary-color)";
 
         timerInterval = setInterval(() => {
-            const elapsed = (Date.now() - questionStartTime) / 1000;
+            const elapsed = (Date.now() - questionStartTime) / 2000;
             timeLeft = LIMIT_TIME - elapsed;
 
             if (timeLeft <= 0) {
@@ -272,7 +272,7 @@
                 timerBar.style.width = "0%";
                 clearInterval(timerInterval);
                 disableAllButtons();
-                setTimeout(() => nextQuestion(), 1500);
+                setTimeout(() => nextQuestion(), 3000);
             } else {
                 timerBar.style.width = `${(timeLeft / LIMIT_TIME) * 100}%`;
                 if (timeLeft < 3) {
