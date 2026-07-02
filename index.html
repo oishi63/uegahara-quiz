@@ -138,13 +138,13 @@
         <h1>結果発表</h1>
         <h2>総・得点: <span id="score" style="color:var(--primary-color);">0</span> 点</h2>
         
-        <!-- 【新機能】暫定順位の表示エリア -->
+        <!-- 暫定順位の表示エリア -->
         <div id="my-rank" class="my-rank-text">順位を計算中...</div>
         
         <p>ランキングに名前を残しますか？</p>
         <input type="text" id="username" class="input-field" placeholder="名前を入力（最大8文字）" maxlength="8">
         
-        <!-- 【新機能】その場で登録するか選べる2つのボタン -->
+        <!-- その場で登録するか選べる2つのボタン -->
         <button class="btn" id="save-btn" onclick="saveScore()">名前を入力して送信する</button>
         <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">登録しないでランキングを見る</button>
         <div id="loading-text" class="loading" style="display:none;">Supabaseに保存中...</div>
@@ -232,7 +232,6 @@
         changeScreen('quiz-screen');
         showQuestion();
     }
-
     function showQuestion() {
         clearInterval(timerInterval);
         const data = quizData[currentQuestionIndex];
@@ -317,7 +316,6 @@
         }
     }
 
-    // 今回のアップデート：結果画面表示と同時にリアルタイムで順位を計算する
     async function showResult() {
         document.getElementById('score').innerText = currentScore.toLocaleString();
         document.getElementById('username').value = '';
@@ -327,7 +325,6 @@
         changeScreen('result-screen');
 
         try {
-            // 自分より高いスコアがデータベースに何件あるか数える
             const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?score=gt.${currentScore}`, {
                 method: "GET",
                 headers: {
@@ -337,19 +334,15 @@
                 }
             });
             
-            // Prefer: count=exact を使うと、Content-Range ヘッダーに総件数が入って返ってくる
             const contentRange = response.headers.get("Content-Range");
             let higherCount = 0;
             if (contentRange) {
-                // "0-9/45" のような文字列から全体の件数 "45" を取り出す
                 higherCount = Number(contentRange.split("/")[1]);
             } else {
-                // ヘッダーがない場合は通常のデータ件数を数える
                 const data = await response.json();
                 higherCount = data.length;
             }
 
-            // 自分より高いスコアの人数 + 1 = 自分の順位
             const myRank = higherCount + 1;
             document.getElementById('my-rank').innerText = `あなたの暫定順位: ${myRank} 位！`;
         } catch (error) {
@@ -413,8 +406,16 @@
                 <li class="ranking-item">
                     <span>${index + 1}位: ${item.name}</span>
                     <span>${item.score.toLocaleString()}点</span>
-`;});
-        html += '';
+                </li>
+            `;
+        });
+        html += '</ul>';
         board.innerHTML = html;
-    }function goHome() { changeScreen('start-screen');
-                       }window.onload = initApp;
+    }
+
+    function goHome() { changeScreen('start-screen'); }
+
+    window.onload = initApp;
+</script>
+</body>
+</html>
