@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>早押しクイズバトル</title>
+    <title>上ヶ原クイズ</title>
     <style>
         :root {
             --primary-color: #2ec4b6; /* 爽やかなミントブルー */
@@ -119,8 +119,8 @@
 <div class="container">
     <!-- スタート画面 -->
     <div id="start-screen" class="screen active">
-        <h1>早押しクイズバトル</h1>
-        <p>全10問のランダムクイズです。<br>早く答えるほど高得点！</p>
+        <h1>早押しクイズ</h1>
+        <p>全10問のランダムクイズです。<br>早く答えるほど高得点！　君の上ヶ原愛は本物か？</p>
         <button class="btn" id="start-btn" onclick="startQuiz()" disabled>問題を読み込み中...</button>
         <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">共通ランキングを見る</button>
     </div>
@@ -287,28 +287,29 @@
         buttons.forEach(btn => btn.disabled = true);
     }
 
+     // 【修正版】その場で正解・不正解の色をつける関数
     function checkAnswer(isCorrect, clickedButton) {
-        clearInterval(timerInterval);
-        disableAllButtons();
+        clearInterval(timerInterval); // タイマー停止
+        disableAllButtons(); // 他のボタンを押せないようにロック
 
         if (isCorrect) {
+            // 【正解の場合】押したボタンを緑色にする
             clickedButton.classList.add('correct-choice');
             clickedButton.innerText = "🟢 正解！ " + clickedButton.innerText;
+            
             const bonus = Math.round(timeLeft * 100);
             currentScore += (1000 + bonus);
         } else {
+            // 【不正解の場合】押したボタンだけを赤色にする（正解ボタンの強調はしない）
             clickedButton.classList.add('wrong-choice');
             clickedButton.innerText = "❌ 不正解... " + clickedButton.innerText;
-            const data = quizData[currentQuestionIndex];
-            const correctText = data.choices[Number(data.answer)];
-            const buttons = document.querySelectorAll('#choices .btn');
-            buttons.forEach(btn => {
-                if (btn.innerText === correctText) btn.classList.add('correct-choice');
-            });
         }
-        setTimeout(() => nextQuestion(), 1500);
+        
+        // 1.5秒間、画面の色を確認させてから次の問題へ進む
+        setTimeout(() => {
+            nextQuestion();
+        }, 1500);
     }
-
     function nextQuestion() {
         currentQuestionIndex++;
         if (currentQuestionIndex < quizData.length) {
