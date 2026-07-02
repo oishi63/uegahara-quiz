@@ -303,7 +303,7 @@
         if (isCorrect) {
             // 【正解の場合】押したボタンを緑色にする
             clickedButton.classList.add('correct-choice');
-            clickedButton.innerText = "🟢" + clickedButton.innerText;
+            clickedButton.innerText = "⭕" + clickedButton.innerText;
             
             const bonus = Math.round(timeLeft * 100);
             currentScore += (1000 + bonus);
