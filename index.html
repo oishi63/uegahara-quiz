@@ -139,11 +139,9 @@
         <button class="btn" onclick="goHome()">トップに戻る</button>
     </div>
 </div>
-
 <script>
     // ==========================================
     // 【最重要】ここにあなたのSupabaseの情報を正確に貼り付けてください
-    // ※ クォーテーション "" は消さないように注意してください。
     // ==========================================
     const SUPABASE_URL = "https://vfavodpjxtwpgntaxrzf.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_8mKj4iiHpme95zNqxFSNwA_a8mJ5U5r";
@@ -166,9 +164,7 @@
         return array;
     }
 
-    // 起動時に自動実行される安全装置
     async function initApp() {
-        // 貼り付けミスをチェックする
         if (SUPABASE_URL.includes("ここにProject") || SUPABASE_ANON_KEY.includes("ここにAPI")) {
             alert("❌ 設定エラー:\nURLまたはAPIキーが初期状態のままです。お使いのSupabaseの値に書き換えてください。");
             document.getElementById('start-btn').innerText = "初期設定が必要です";
@@ -177,8 +173,6 @@
         if (SUPABASE_URL.endsWith('/')) {
             alert("⚠️ 警告:\nSUPABASE_URLの最後に '/' が入っています。エラーの原因になるので消してください。");
         }
-        
-        // 問題の読み込みを開始
         await loadQuestions();
     }
 
@@ -275,3 +269,94 @@
         clearInterval(timerInterval);
         if (isCorrect) {
             const bonus = Math.round(timeLeft * 100);
+            currentScore += (1000 + bonus);
+        }
+        nextQuestion();
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < quizData.length) {
+            showQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        document.getElementById('score').innerText = currentScore.toLocaleString();
+        document.getElementById('username').value = '';
+        document.getElementById('save-btn').disabled = false;
+        document.getElementById('loading-text').style.display = 'none';
+        changeScreen('result-screen');
+    }
+
+    async function saveScore() {
+        const nameInput = document.getElementById('username').value.trim();
+        const name = nameInput || "名無し";
+        
+        document.getElementById('save-btn').disabled = true;
+        document.getElementById('loading-text').style.display = 'block';
+
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
+                method: "POST",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ name: name, score: currentScore })
+            });
+            if (!response.ok) throw new Error(await response.text());
+            showRanking();
+        } catch (error) {
+            alert("⚠️ 保存エラー詳細: " + error.message);
+            document.getElementById('save-btn').disabled = false;
+            document.getElementById('loading-text').style.display = 'none';
+        }
+    }
+
+    async function showRanking() {
+        changeScreen('ranking-screen');
+        const board = document.getElementById('ranking-board');
+        board.innerHTML = '<p class="loading">最新データを読み込み中...</p>';
+        
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?order=score.desc&limit=10`, {
+                method: "GET",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            if (!response.ok) throw new Error();
+            const ranking = await response.json();
+            renderRanking(ranking);
+        } catch (error) {
+            board.innerHTML = '<p>データの取得に失敗しました。</p>';
+        }
+    }
+
+    function renderRanking(ranking) {
+        const board = document.getElementById('ranking-board');
+        if (!ranking || ranking.length === 0) {
+            board.innerHTML = '<p>まだランキングデータがありません。</p>';
+            return;
+        }
+        let html = '<ul class="ranking-list">';
+        ranking.forEach((item, index) => {
+            html += `
+                <li class="ranking-item">
+                    <span>${index + 1}位: ${item.name}</span>
+                    <span>${item.score.toLocaleString()}点</span>
+                </li>
+            `;
+        });
+        html += '</ul>';
+        board.innerHTML = html;
+    }
+
+    function goHome() { changeScreen('start-screen'); }
+
+    window.onload = initApp;
+</script>
+</body>
+</html>
