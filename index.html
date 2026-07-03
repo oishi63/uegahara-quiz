@@ -77,8 +77,17 @@
             background-color: #ffffff;
             color: var(--text-color);
             border-radius: 8px;
-            margin-bottom: 16px;
+            margin-bottom: 8px; /* 下の補足文字との間隔調整のため16pxから8pxに変更 */
             box-sizing: border-box;
+        }
+        /* 【追加】ニックネーム補足テキスト用のスタイル */
+        .sub-text {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 0;
+            margin-bottom: 16px;
+            text-align: center;
         }
         .timer-container {
             width: 100%;
@@ -128,9 +137,15 @@
     <div id="start-screen" class="screen active">
         <h1>上ヶ原クイズ</h1>
         <div class="version-text">v1.0</div> 
-        <p>全10問のランダムクイズです。<br>早く答えるほど高得点！<br>君の上ヶ原への愛はいかに！<br>(ニックネームはランキングに登録される名前になるよ)</p>
+        <p>
+            全10問のランダムクイズです。<br>
+            早く答えるほど高得点！<br>
+            何度でも挑戦してハイスコアを更新しよう！<br>
+            君の上ヶ原への愛はいかに！
+        </p>
         
         <input type="text" id="username" class="input-field" placeholder="ニックネームを入力（最大8文字）" maxlength="8" oninput="checkInputName()">
+        <span class="sub-text">※入力したニックネームでランキングに登録されます</span>
         
         <button class="btn" id="start-btn" onclick="startQuiz()" disabled>問題を読み込み中...</button>
         <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">共通ランキングを見る</button>
@@ -196,7 +211,7 @@
             alert("⚠️ 警告:\nSUPABASE_URLの最後に '/' が入っています。エラーの原因になるので消してください。");
         }
 
-        // 【追加】ローカルストレージから前回のニックネームを復元
+        // ロールストレージから前回のニックネームを復元
         const savedName = localStorage.getItem('quiz_nickname');
         if (savedName) {
             document.getElementById('username').value = savedName;
@@ -248,23 +263,18 @@
         document.getElementById(screenId).classList.add('active');
     }
 
-   // 【修正版】名前が重複していても確認後に処理を継続できるスタート処理
     async function startQuiz() {
         const startBtn = document.getElementById('start-btn');
         const inputName = document.getElementById('username').value.trim();
         registeredName = inputName || "名無し";
         
-        // ボタンを一時的に無効化
         startBtn.disabled = true;
         startBtn.innerText = "名前をチェック中...";
 
         const localSavedName = localStorage.getItem('quiz_nickname');
 
         try {
-            // 入力された名前がブラウザに記憶されている名前と違う場合のみ重複チェック
             if (registeredName !== localSavedName) {
-                
-                // Supabaseに同じ名前がすでに登録されているか照会
                 const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&limit=1`;
                 const checkResponse = await fetch(checkUrl, {
                     method: "GET",
@@ -274,14 +284,11 @@
                 if (!checkResponse.ok) throw new Error("名前の重複チェックに失敗しました");
                 const existingRecords = await checkResponse.json();
 
-                // すでに同じ名前が存在する場合
                 if (existingRecords.length > 0) {
-                    // 【ここを変更】警告ではなく、ユーザーに続行するかどうか選択させる
                     const proceed = confirm(
                         `⚠️ 「${registeredName}」というニックネームはすでに使用されています。\n\nこのままプレイを続行しますか？\n（ハイスコアを獲得した場合、既存のランキングデータは上書きされます）`
                     );
                     
-                    // 「キャンセル（いいえ）」が押されたら処理を中断
                     if (!proceed) {
                         startBtn.disabled = false;
                         startBtn.innerText = "スタート";
@@ -290,7 +297,6 @@
                 }
             }
 
-            // 重複がない、またはユーザーが「はい」を選んだ場合はクイズ開始
             localStorage.setItem('quiz_nickname', registeredName);
 
             currentQuestionIndex = 0;
@@ -360,30 +366,21 @@
         buttons.forEach(btn => btn.disabled = true);
     }
 
-   // 【修正版】ゲームバランスを見直した点数計算ロジック
     function checkAnswer(isCorrect, clickedButton) {
-        clearInterval(timerInterval); // タイマー停止
-        disableAllButtons(); // 他のボタンを押せないようにロック
+        clearInterval(timerInterval); 
+        disableAllButtons(); 
 
         if (isCorrect) {
-            // 【正解の場合】押したボタンを緑色にする
             clickedButton.classList.add('correct-choice');
             clickedButton.innerText = "⭕" + clickedButton.innerText;
             
-            // タイムボーナスの影響をこれまでの1/10に縮小（最大20秒 × 10 = 200点）
             const bonus = Math.round(timeLeft * 10); 
-            // 基本点 1,000点 + タイムボーナス（0〜200点）
             currentScore += (1000 + bonus);
         } else {
-            // 【不正解の場合】押したボタンだけを赤色にする
             clickedButton.classList.add('wrong-choice');
             clickedButton.innerText = "❌" + clickedButton.innerText;
-            
-            // 不正解でもマイナスにしない
-            // currentScore = Math.max(0, currentScore - 100);
         }
         
-        // 1.7秒間、画面の色を確認させてから次の問題へ進む
         setTimeout(() => {
             nextQuestion();
         }, 1700);
@@ -432,11 +429,9 @@
         }
     }
 
-  // 【完全解決版】既存データを削除してから登録する安全な上書きロジック
     async function autoSaveScore() {
         const statusText = document.getElementById('save-status');
         try {
-            // ① 同じニックネームの過去レコードを1件取得（ハイスコア確認用）
             const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&order=score.desc&limit=1`;
             const checkResponse = await fetch(checkUrl, {
                 method: "GET",
@@ -446,15 +441,13 @@
             if (!checkResponse.ok) throw new Error("過去のスコア照会に失敗しました");
             const existingRecords = await checkResponse.json();
 
-            // ② 自己ベスト判定
             if (existingRecords.length > 0) {
                 const pastHighScore = existingRecords[0].score;
                 if (currentScore <= pastHighScore) {
                     statusText.innerText = `💡 自己ベスト（${pastHighScore.toLocaleString()}点）を超えなかったため、ランキングは更新されませんでした。`;
-                    return; // スコアが低ければここで終了
+                    return; 
                 }
 
-                // 【ここがポイント】古いスコアの方が低ければ、先にその古いレコードを削除する
                 statusText.innerText = "古いデータを整理中...";
                 const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}`, {
                     method: "DELETE",
@@ -463,7 +456,6 @@
                 if (!deleteResponse.ok) throw new Error("古いデータの削除に失敗しました");
             }
 
-            // ③ 新しいハイスコアをクリーンに新規登録（POST）
             statusText.innerText = "最新の自己ベストを保存中...";
             const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
                 method: "POST",
@@ -525,7 +517,6 @@
     }
 
     function goHome() {
-        // 【修正】トップに戻っても名前は消さずに残す（そのまま連続プレイ可能に）
         const savedName = localStorage.getItem('quiz_nickname');
         if (savedName) {
             document.getElementById('username').value = savedName;
