@@ -269,16 +269,16 @@ async function startQuiz() {
     registeredName = inputName || "名無し";
 
     // ─── 【裏モード判定】 ──────────────────────────────────────
-    if (registeredName === "浮田潤") {
-        // ここに裏モード（secret.html）へのパスを指定します
-        const secretUrl = "secret.html"; 
+    // if (registeredName === "浮田潤") {
+    //     // ここに裏モード（secret.html）へのパスを指定します
+    //     const secretUrl = "secret.html"; 
         
-        startBtn.innerText = "裏モード起動中...";
-        setTimeout(() => {
-            window.location.href = secretUrl;
-        }, 800);
-        return; // 裏モードの時はここで処理を終了（通常モードに進まない）
-    }
+    //     startBtn.innerText = "裏モード起動中...";
+    //     setTimeout(() => {
+    //         window.location.href = secretUrl;
+    //     }, 800);
+    //     return; // 裏モードの時はここで処理を終了（通常モードに進まない）
+    // }
     // ─────────────────────────────────────────────────────────
 
     // ─── 【通常モードの処理】（ここが消えていたため進まなくなっていました） ───
