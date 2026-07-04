@@ -171,7 +171,7 @@
     </div>
 
     <div id="ranking-screen" class="screen">
-        <h1>🏆 トップ10 ランキング</h1>
+        <h1>🏆 トップ20 ランキング</h1>
         <div id="ranking-board"></div>
         <button class="btn" onclick="goHome()">トップに戻る</button>
     </div>
@@ -504,7 +504,7 @@ async function startQuiz() {
         board.innerHTML = '<p class="loading">最新データを読み込み中...</p>';
         
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?order=score.desc&limit=10`, {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?order=score.desc&limit=20`, {
                 method: "GET",
                 headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
             });
