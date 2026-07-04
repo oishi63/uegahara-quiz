@@ -269,28 +269,23 @@ async function startQuiz() {
     registeredName = inputName || "名無し";
 
     // ─── 【裏モード判定】 ──────────────────────────────────────
-    // if (registeredName === "浮田潤") {
-    //     // ここに裏モード（secret.html）へのパスを指定します
-    //     const secretUrl = "secret.html"; 
-        
-    //     startBtn.innerText = "裏モード起動中...";
-    //     setTimeout(() => {
-    //         window.location.href = secretUrl;
-    //     }, 800);
-    //     return; // 裏モードの時はここで処理を終了（通常モードに進まない）
-    // }
+    if (registeredName === "浮田潤") {
+        const secretUrl = "secret.html"; 
+        startBtn.innerText = "裏モード起動中...";
+        setTimeout(() => { window.location.href = secretUrl; }, 800);
+        return;
+    }
     // ─────────────────────────────────────────────────────────
 
-    // ─── 【通常モードの処理】（ここが消えていたため進まなくなっていました） ───
     startBtn.disabled = true;
     startBtn.innerText = "名前をチェック中...";
 
     const localSavedName = localStorage.getItem('quiz_nickname');
 
     try {
-        // 1. 名前の重複・ハイスコアチェック
+        // 【修正】重複チェック時に「表モードのデータ（is_secretがtrueではないもの）」だけを対象にする
         if (registeredName !== localSavedName) {
-            const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&limit=1`;
+            const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&or=(is_secret.eq.false,is_secret.is.null)&limit=1`;
             const checkResponse = await fetch(checkUrl, {
                 method: "GET",
                 headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
@@ -301,7 +296,7 @@ async function startQuiz() {
 
             if (existingRecords.length > 0) {
                 const proceed = confirm(
-                    `「${registeredName}」はすでに登録されています。\n\nこのままプレイしますか？（自己ベスト更新時のみ上書きされます）`
+                    `「${registeredName}」はすでに表モードで登録されています。\n\nこのままプレイしますか？（自己ベスト更新時のみ上書きされます）`
                 );
                 if (!proceed) {
                     startBtn.disabled = false;
@@ -311,17 +306,13 @@ async function startQuiz() {
             }
         }
 
-        // 名前の保存とクイズの準備
         localStorage.setItem('quiz_nickname', registeredName);
-
         currentQuestionIndex = 0;
         currentScore = 0;
         
-        // 問題をシャッフルして10問抽出
         const shuffledList = shuffle(allQuestions);
         quizData = shuffledList.slice(0, 10);
         
-        // クイズ画面へ遷移して開始
         changeScreen('quiz-screen');
         showQuestion();
 
@@ -449,54 +440,57 @@ async function startQuiz() {
     }
 
     async function autoSaveScore() {
-        const statusText = document.getElementById('save-status');
-        try {
-            const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&order=score.desc&limit=1`;
-            const checkResponse = await fetch(checkUrl, {
-                method: "GET",
+    const statusText = document.getElementById('save-status');
+    try {
+        // 【修正】過去スコアの照会時も、表モードのデータのみを対象にする
+        const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&or=(is_secret.eq.false,is_secret.is.null)&order=score.desc&limit=1`;
+        const checkResponse = await fetch(checkUrl, {
+            method: "GET",
+            headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+
+        if (!checkResponse.ok) throw new Error("過去のスコア照会に失敗しました");
+        const existingRecords = await checkResponse.json();
+
+        if (existingRecords.length > 0) {
+            const pastHighScore = existingRecords[0].score;
+            if (currentScore <= pastHighScore) {
+                statusText.innerText = `💡 自己ベスト（${pastHighScore.toLocaleString()}点）を超えなかったため、ランキングは更新されませんでした。`;
+                return; 
+            }
+
+            statusText.innerText = "古いデータを整理中...";
+            // 【修正】削除時も表モードのデータだけを狙い撃ちで消す（裏モードのデータを巻き添えにしない）
+            const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&or=(is_secret.eq.false,is_secret.is.null)`, {
+                method: "DELETE",
                 headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
             });
-
-            if (!checkResponse.ok) throw new Error("過去のスコア照会に失敗しました");
-            const existingRecords = await checkResponse.json();
-
-            if (existingRecords.length > 0) {
-                const pastHighScore = existingRecords[0].score;
-                if (currentScore <= pastHighScore) {
-                    statusText.innerText = `💡 自己ベスト（${pastHighScore.toLocaleString()}点）を超えなかったため、ランキングは更新されませんでした。`;
-                    return; 
-                }
-
-                statusText.innerText = "古いデータを整理中...";
-                const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}`, {
-                    method: "DELETE",
-                    headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
-                });
-                if (!deleteResponse.ok) throw new Error("古いデータの削除に失敗しました");
-            }
-
-            statusText.innerText = "最新の自己ベストを保存中...";
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
-                method: "POST",
-                headers: {
-                    "apikey": SUPABASE_ANON_KEY,
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ name: registeredName, score: currentScore })
-            });
-            
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(`新規登録エラー: ${errText}`);
-            }
-            statusText.innerText = "✨ 自己ベストが更新され、ランキングに登録されました！";
-
-        } catch (error) {
-            statusText.innerText = "⚠️ スコアの自動保存に失敗しました。";
-            console.error("エラー詳細:", error);
+            if (!deleteResponse.ok) throw new Error("古いデータの削除に失敗しました");
         }
+
+        statusText.innerText = "最新の自己ベストを保存中...";
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking`, {
+            method: "POST",
+            headers: {
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                "Content-Type": "application/json"
+            },
+            // 【修正】明示的に is_secret: false を持たせて保存する
+            body: JSON.stringify({ name: registeredName, score: currentScore, is_secret: false })
+        });
+        
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`新規登録エラー: ${errText}`);
+        }
+        statusText.innerText = "✨ 自己ベストが更新され、ランキングに登録されました！";
+
+    } catch (error) {
+        statusText.innerText = "⚠️ スコアの自動保存に失敗しました。";
+        console.error("エラー詳細:", error);
     }
+}
 
     async function showRanking() {
         changeScreen('ranking-screen');
