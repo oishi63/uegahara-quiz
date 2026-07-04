@@ -527,11 +527,11 @@ async function startQuiz() {
     ranking.forEach((item, index) => {
         // ★ここを追加：裏モードクリア（is_secret が true）ならバッジを作る
         const isSecretClear = item.is_secret === true;
-        const secretBadge = isSecretClear ? `<span class="badge-secret" style="background-color: #ef4444; color: #ffffff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 6px; vertical-align: middle; font-weight: bold;">💀裏クリア</span>` : '';
+        const secretBadge = isSecretClear ? `<span class="badge-secret" style="background-color: #ef4444; color: #ffffff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 6px; vertical-align: middle; font-weight: bold;">裏</span>` : '';
 
         html += `
             <li class="ranking-item">
-                <span>${index + 1}位: ${secretBadge}${item.name}</span>
+                <span>${index + 1}位: ${item.name}${secretBadge}</span>
                 <span>${item.score.toLocaleString()}点</span>
             </li>
         `;
