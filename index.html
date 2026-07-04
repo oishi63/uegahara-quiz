@@ -263,55 +263,74 @@
         document.getElementById(screenId).classList.add('active');
     }
 
-    async function startQuiz() {
-        const startBtn = document.getElementById('start-btn');
-        const inputName = document.getElementById('username').value.trim();
-        registeredName = inputName || "名無し";
+async function startQuiz() {
+    const startBtn = document.getElementById('start-btn');
+    const inputName = document.getElementById('username').value.trim();
+    registeredName = inputName || "名無し";
+
+    // ─── 【裏モード判定】 ──────────────────────────────────────
+    if (registeredName === "浮田潤") {
+        // ここに裏モード（secret.html）へのパスを指定します
+        const secretUrl = "secret.html"; 
         
-        startBtn.disabled = true;
-        startBtn.innerText = "名前をチェック中...";
+        startBtn.innerText = "裏モード起動中...";
+        setTimeout(() => {
+            window.location.href = secretUrl;
+        }, 800);
+        return; // 裏モードの時はここで処理を終了（通常モードに進まない）
+    }
+    // ─────────────────────────────────────────────────────────
 
-        const localSavedName = localStorage.getItem('quiz_nickname');
+    // ─── 【通常モードの処理】（ここが消えていたため進まなくなっていました） ───
+    startBtn.disabled = true;
+    startBtn.innerText = "名前をチェック中...";
 
-        try {
-            if (registeredName !== localSavedName) {
-                const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&limit=1`;
-                const checkResponse = await fetch(checkUrl, {
-                    method: "GET",
-                    headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
-                });
+    const localSavedName = localStorage.getItem('quiz_nickname');
 
-                if (!checkResponse.ok) throw new Error("名前の重複チェックに失敗しました");
-                const existingRecords = await checkResponse.json();
+    try {
+        // 1. 名前の重複・ハイスコアチェック
+        if (registeredName !== localSavedName) {
+            const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&limit=1`;
+            const checkResponse = await fetch(checkUrl, {
+                method: "GET",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+            });
 
-                if (existingRecords.length > 0) {
-                    const proceed = confirm(
-                        `⚠️ 「${registeredName}」というニックネームはすでに使用されています。\n\nこのままプレイを続行しますか？\n（ハイスコアを獲得した場合、既存のランキングデータは上書きされます）`
-                    );
-                    
-                    if (!proceed) {
-                        startBtn.disabled = false;
-                        startBtn.innerText = "スタート";
-                        return; 
-                    }
+            if (!checkResponse.ok) throw new Error("名前の重複チェックに失敗しました");
+            const existingRecords = await checkResponse.json();
+
+            if (existingRecords.length > 0) {
+                const proceed = confirm(
+                    `「${registeredName}」はすでに登録されています。\n\nこのままプレイしますか？（自己ベスト更新時のみ上書きされます）`
+                );
+                if (!proceed) {
+                    startBtn.disabled = false;
+                    checkInputName();
+                    return; 
                 }
             }
-
-            localStorage.setItem('quiz_nickname', registeredName);
-
-            currentQuestionIndex = 0;
-            currentScore = 0;
-            const shuffledList = shuffle([...allQuestions]);
-            quizData = shuffledList.slice(0, 10);
-            changeScreen('quiz-screen');
-            showQuestion();
-
-        } catch (error) {
-            alert("⚠️ エラーが発生しました:\n" + error.message);
-            startBtn.disabled = false;
-            startBtn.innerText = "スタート";
         }
+
+        // 名前の保存とクイズの準備
+        localStorage.setItem('quiz_nickname', registeredName);
+
+        currentQuestionIndex = 0;
+        currentScore = 0;
+        
+        // 問題をシャッフルして10問抽出
+        const shuffledList = shuffle(allQuestions);
+        quizData = shuffledList.slice(0, 10);
+        
+        // クイズ画面へ遷移して開始
+        changeScreen('quiz-screen');
+        showQuestion();
+
+    } catch (error) {
+        alert("⚠️ エラーが発生しました:\n" + error.message);
+        startBtn.disabled = false;
+        checkInputName();
     }
+}
 
     function showQuestion() {
         clearInterval(timerInterval);
