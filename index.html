@@ -127,6 +127,19 @@
         .loading { color: #64748b; font-style: italic; margin: 10px 0; }
         .my-rank-text { font-size: 18px; margin: 12px 0; color: #b45309; font-weight: bold; }
         .save-status-text { font-size: 14px; color: #4b5563; margin-top: 10px; font-weight: bold; }
+
+        /* ★追加：表モード用の青色バッジスタイル */
+        .badge-normal {
+            background-color: #3b82f6; /* 鮮やかな青色 */
+            color: #ffffff;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+            font-weight: bold;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -534,12 +547,12 @@
                 tabs[key].className = 'btn';
                 tabs[key].style.backgroundColor = 'var(--primary-color)';
                 tabs[key].style.color = '#ffffff';
-                tabs[key].style.textAlign = 'center'; // ★ここを追加（中央寄せに固定）
+                tabs[key].style.textAlign = 'center';
             } else {
                 tabs[key].className = 'btn choice-btn';
                 tabs[key].style.backgroundColor = '#ffffff';
                 tabs[key].style.color = 'var(--text-color)';
-                tabs[key].style.textAlign = 'center'; // ★ここを追加（左寄せを打ち消して中央寄せに）
+                tabs[key].style.textAlign = 'center';
             }
         });
         
@@ -570,6 +583,7 @@
         }
     }
 
+    /* ★修正：ランキングのバッジ判定とHTML組み立て処理 */
     function renderRanking(ranking) {
         const board = document.getElementById('ranking-board');
         if (!ranking || ranking.length === 0) {
@@ -579,11 +593,19 @@
         let html = '<ul class="ranking-list">';
         ranking.forEach((item, index) => {
             const isSecretClear = item.is_secret === true;
-            const secretBadge = isSecretClear ? `<span class="badge-secret" style="background-color: #ef4444; color: #ffffff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 6px; vertical-align: middle; font-weight: bold;">裏モード</span>` : '';
+            
+            // モードに応じたバッジを生成
+            let modeBadge = '';
+            if (isSecretClear) {
+                modeBadge = `<span class="badge-secret" style="background-color: #ef4444; color: #ffffff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; font-weight: bold;">裏モード</span>`;
+            } else {
+                // 表モードの場合は青いバッジを設定
+                modeBadge = `<span class="badge-normal">表モード</span>`;
+            }
 
             html += `
                 <li class="ranking-item">
-                    <span>${index + 1}位: ${item.name}${secretBadge}</span>
+                    <span>${index + 1}位: ${item.name}${modeBadge}</span>
                     <span>${item.score.toLocaleString()}点</span>
                 </li>
             `;
