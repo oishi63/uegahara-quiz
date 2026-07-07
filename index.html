@@ -146,7 +146,14 @@
         <span class="sub-text">※入力したニックネームでランキングに登録されます。<br>顧問の名前を入れると…</span>
         
         <button class="btn" id="start-btn" onclick="startQuiz()" disabled>問題を読み込み中...</button>
-        <button class="btn choice-btn" style="text-align:center;" onclick="showRanking()">共通ランキングを見る</button>
+        
+        <!-- トップページのランキング切り替えボタン -->
+        <p style="font-size: 14px; font-weight: bold; margin: 20px 0 8px 0; color: #1e9489;">📊 ランキングを見る</p>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="btn choice-btn" style="text-align:center; padding:10px 0; margin-bottom:0; font-size:14px; flex:1;" onclick="showRankingWithTab('all')">総合</button>
+            <button class="btn choice-btn" style="text-align:center; padding:10px 0; margin-bottom:0; font-size:14px; flex:1;" onclick="showRankingWithTab('normal')">表</button>
+            <button class="btn choice-btn" style="text-align:center; padding:10px 0; margin-bottom:0; font-size:14px; flex:1;" onclick="showRankingWithTab('secret')">裏</button>
+        </div>
     </div>
 
     <div id="quiz-screen" class="screen">
@@ -169,9 +176,17 @@
     </div>
 
     <div id="ranking-screen" class="screen">
-        <h1>🏆 トップ20 ランキング</h1>
+        <h1 id="ranking-title">🏆 総合ランキング</h1>
+        
+        <!-- ランキング画面内のタブ切り替えボタン -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button class="btn" id="tab-all" onclick="changeRankingTab('all')" style="margin-bottom:0; font-size:14px; padding:10px 0; flex:1;">総合</button>
+            <button class="btn choice-btn" id="tab-normal" onclick="changeRankingTab('normal')" style="margin-bottom:0; font-size:14px; padding:10px 0; flex:1; text-align:center;">表</button>
+            <button class="btn choice-btn" id="tab-secret" onclick="changeRankingTab('secret')" style="margin-bottom:0; font-size:14px; padding:10px 0; flex:1; text-align:center;">裏</button>
+        </div>
+
         <div id="ranking-board"></div>
-        <button class="btn" onclick="goHome()">トップに戻る</button>
+        <button class="btn" onclick="goHome()" style="margin-top: 12px;">トップに戻る</button>
     </div>
 </div>
 
@@ -190,6 +205,7 @@
     let timeLeft = LIMIT_TIME;
     let timerInterval = null;
     let questionStartTime = 0;
+    let currentRankingType = 'all'; // 現在選択されているランキングのタイプ
 
     function shuffle(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -201,7 +217,7 @@
 
     async function initApp() {
         if (SUPABASE_URL.includes("ここにProject") || SUPABASE_ANON_KEY.includes("ここにAPI")) {
-            alert("❌ 設定エラー:\nURLまたはAPIキーが初期状態のままです。お使いのSupabaseの値に書き換えてください。");
+            alert("❌ 設定エラー:\nURLまたはAPIキーが初期状態のままです。お使い of Supabaseの値に書き換えてください。");
             document.getElementById('start-btn').innerText = "初期設定が必要です";
             return;
         }
@@ -282,7 +298,6 @@
         const localSavedName = localStorage.getItem('quiz_nickname');
 
         try {
-            // 【修正】重複判定時に「表モードのデータ（is_secretがfalseまたはnull）」のみを対象にする
             if (registeredName !== localSavedName) {
                 const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&or=(is_secret.eq.false,is_secret.is.null)&limit=1`;
                 const checkResponse = await fetch(checkUrl, {
@@ -414,7 +429,6 @@
         await autoSaveScore();
 
         try {
-            // 【修正】暫定順位の計算時も表モードのスコア（is_secretがtrueでないもの）のみをカウント
             const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?or=(is_secret.eq.false,is_secret.is.null)&score=gt.${currentScore}`, {
                 method: "GET",
                 headers: {
@@ -443,7 +457,6 @@
     async function autoSaveScore() {
         const statusText = document.getElementById('save-status');
         try {
-            // 【修正】過去の表スコアのみを抽出
             const checkUrl = `${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&or=(is_secret.eq.false,is_secret.is.null)&order=score.desc&limit=1`;
             const checkResponse = await fetch(checkUrl, {
                 method: "GET",
@@ -461,7 +474,6 @@
                 }
 
                 statusText.innerText = "古いデータを整理中...";
-                // 【修正】削除時、裏モードのデータを巻き込まないよう、表モードの行のみを狙い撃ちで消す
                 const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/ranking?name=eq.${encodeURIComponent(registeredName)}&or=(is_secret.eq.false,is_secret.is.null)`, {
                     method: "DELETE",
                     headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
@@ -477,7 +489,6 @@
                     "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
                     "Content-Type": "application/json"
                 },
-                // 【修正】明示的に is_secret: false を持たせて保存
                 body: JSON.stringify({ name: registeredName, score: currentScore, is_secret: false })
             });
             
@@ -493,13 +504,61 @@
         }
     }
 
-    async function showRanking() {
+    // ─── ランキング表示・タブ切り替えロジック ───────────────────────
+    async function showRankingWithTab(type) {
         changeScreen('ranking-screen');
+        await changeRankingTab(type);
+    }
+
+    async function showRanking() {
+        await showRankingWithTab('all');
+    }
+
+    async function changeRankingTab(type) {
+        currentRankingType = type;
+        
+        const tabs = {
+            all: document.getElementById('tab-all'),
+            normal: document.getElementById('tab-normal'),
+            secret: document.getElementById('tab-secret')
+        };
+        const titleEl = document.getElementById('ranking-title');
+        
+        if (type === 'all') titleEl.innerText = "🏆 総合ランキング";
+        if (type === 'normal') titleEl.innerText = "🟢 表モードランキング";
+        if (type === 'secret') titleEl.innerText = "💀 裏モードランキング";
+
+        Object.keys(tabs).forEach(key => {
+            if (!tabs[key]) return;
+            if (key === type) {
+                tabs[key].className = 'btn';
+                tabs[key].style.backgroundColor = 'var(--primary-color)';
+                tabs[key].style.color = '#ffffff';
+                tabs[key].style.textAlign = 'center'; // ★ここを追加（中央寄せに固定）
+            } else {
+                tabs[key].className = 'btn choice-btn';
+                tabs[key].style.backgroundColor = '#ffffff';
+                tabs[key].style.color = 'var(--text-color)';
+                tabs[key].style.textAlign = 'center'; // ★ここを追加（左寄せを打ち消して中央寄せに）
+            }
+        });
+        
+        await fetchAndRenderRanking();
+    }
+
+    async function fetchAndRenderRanking() {
         const board = document.getElementById('ranking-board');
         board.innerHTML = '<p class="loading">最新データを読み込み中...</p>';
         
+        let filterQuery = '';
+        if (currentRankingType === 'normal') {
+            filterQuery = '&or=(is_secret.eq.false,is_secret.is.null)'; 
+        } else if (currentRankingType === 'secret') {
+            filterQuery = '&is_secret=eq.true'; 
+        }
+
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?order=score.desc&limit=20`, {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/ranking?order=score.desc&limit=20${filterQuery}`, {
                 method: "GET",
                 headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
             });
